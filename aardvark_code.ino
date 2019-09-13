@@ -27,7 +27,7 @@ int V_MIN = 8;
  */
 int R_VOUT_UPPER = 4700;
 int R_VOUT_LOWER = 3300;
-int R_SC         = 1;
+int R_SC         = 1000; // in micro-ohms
 int R_IOUT_UPPER = 470000;
 int R_IOUT_LOWER = 330000;
 
@@ -59,7 +59,12 @@ float getCurrent(){
    * Gets the current drawn by the active load, in mA.
    */
    
-  return 0.0;
+  int digi_repr = analogRead(I_READ_PIN);
+  float measured = static_cast<float>(digi_repr) / 1023;
+  float ref_voltage = (measured * (R_IOUT_UPPER + R_IOUT_LOWER)) / R_IOUT_LOWER;
+  float actual_voltage = getActualVoltage();
+  float total_current = (ref_voltage - actual_voltage) / RSC;
+  return total_current - (1000 * actual_voltage / (R_VOUT_UPPER + R_VOUT_LOWER));
   
 }
 
@@ -69,7 +74,7 @@ float getActualVoltage(){
    */
 
   int digi_repr = analogRead(V_READ_PIN);
-  float measured = (digi_repr * 1.0) / 1023;
+  float measured = static_cast<float>(digi_repr) / 1023;
   return (measured * (R_VOUT_UPPER + R_VOUT_LOWER)) / R_VOUT_LOWER;
   
 }
