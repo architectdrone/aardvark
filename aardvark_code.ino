@@ -2,33 +2,56 @@
  * AARDVARK - A program for controlling a voltage regulator circuit.
  * Made for JEDL Project 1
  */
-using namespace std;
-const int MESSAGE_DELAY = 30; //How many iterations to wait between updates.
 
-int message_counter = 0;
+/**
+ * pin definitions
+ */
+int PWM_PIN = 3;
+int V_READ_PIN = 5;
+int I_READ_PIN = 7;
+
+/**
+ * PWM range definitions
+ */
+int PWM_MAX = 255;
+int PWM_MIN = 170;
+
+/**
+ * voltage range definitions
+ */
+int V_MAX = 12;
+int V_MIN = 8;
+
+/**
+ * resistance value
+ */
+int R_VOUT_UPPER = 4700;
+int R_VOUT_LOWER = 3300;
+int R_SC         = 1;
+int R_IOUT_UPPER = 470000;
+int R_IOUT_LOWER = 330000;
+
+/**
+ * variables for keeping track of the voltage being output
+ */
+float desired = V_MIN;
+float pwm_out = PWM_MIN;
 
 void setup() {
-  Serial.begin(9600); //Starts the Serial (over USB) connection.
+  Serial.begin(9600); // starts the serial (over USB) connection
+  pinMode(PWM_PIN, OUTPUT);
+  pinMode(V_READ_PIN, INPUT);
+  pinMode(I_READ_PIN, INPUT);
 }
 
-void sendMessage(String  msg, bool respectCounter){
-  /*
-   * Sends a message to a given COM port via the USB. If no USB is plugged in, this function does nothing.
-   * @param respectCounter Whether or not the countdown should be ignored.
-   */
-   if (message_counter >= MESSAGE_DELAY || !respectCounter){
-    Serial.println(msg);
-    message_counter = 0;
-   }else{
-    message_counter+=1;
-   }
-   
-}
-
-void setVoltage(float voltage) {
+void setDesired(float voltage){
   /*
    * Sets the voltage on the regulator. Must be in the range 8-12 volts.
    */
+   
+  desired = voltage;
+  pwm_out = PWM_MIN + ((desired - V_MIN) * (PWM_MAX - PWM_MIN)) / (V_MAX - V_MIN);
+  
 }
 
 float getCurrent(){
@@ -36,33 +59,58 @@ float getCurrent(){
    * Gets the current drawn by the active load, in mA.
    */
    
-   return 0.0;
+  return 0.0;
+  
 }
 
-float getActualVoltage() {
+float getActualVoltage(){
   /*
    * Gets the voltage that is actually across the active load.
    */
 
-   return 0.0;
+  int digi_repr = analogRead(V_READ_PIN);
+  float measured = (digi_repr * 1.0) / 1023;
+  return (measured * (R_VOUT_UPPER + R_VOUT_LOWER)) / R_VOUT_LOWER;
+  
 }
 
-float getDesiredVoltage() {
-  /*
-   * Gets the voltage that the user wants to have across the load.
-   */
-
-   return 0.0;
+void printStatus(){
+  
+  String msg = "DESIRED: "+ String(desired)+ "V ACTUAL: "+ String(getActualVoltage())+ "V DRAW: "+ String(getCurrent())+ "mA";
+  Serial.println(msg);
+  
 }
+
+String readStr;
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  float desiredVoltage = getDesiredVoltage();
-  float actualVoltage  = getActualVoltage();
-  float current        = getCurrent();
+  analogWrite(PWM_PIN, V_LEVEL);
 
-  String msg = "DESIRED: "+ String(desiredVoltage)+ "V ACTUAL: "+ String(actualVoltage)+ "V DRAW: "+ String(current)+ "mA";
-  sendMessage(msg, true);
+  if(Serial.available()){
+    readStr = Serial.readString();
 
-  setVoltage(desiredVoltage);
+    while(readStr.length() > 0){
+      if(readStr.startsWith("read")){
+        printStatus();
+        readStr.remove(0, 4);
+      }
+      else if(readStr.startsWith("set")){
+        readStr.remove(0, 3);
+        readStr.trim();
+        float v_set = readStr.toFloat();
+        if(v_set >= 8 && v_set <= 12){
+          v_set = static_cast<float>(static_cast<int>(v_set*2))/2;
+          setDesired(v_set);
+        }
+        else{
+          Serial.println("Desired voltage must be between 8 and 12 volts.");
+        }
+        printStatus();
+      }
+      else{
+        readStr.remove(0, 1);
+      }
+      
+    }
+  }
 }
