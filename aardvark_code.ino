@@ -7,8 +7,8 @@
  * pin definitions
  */
 int PWM_PIN = 3;
-int V_READ_PIN = 5;
-int I_READ_PIN = 7;
+int V_READ_PIN = 7;
+int I_READ_PIN = 5;
 
 /**
  * PWM range definitions
