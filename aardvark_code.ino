@@ -18,7 +18,7 @@ const float V_MAX = 12.0;
 const float V_MIN = 8.0;
 
 /**
- * resistance value
+ * resistance values
  */
 const int  R_VOUT_UPPER = 5050; // 4560;
 const int  R_VOUT_LOWER = 3260; // 3243;
@@ -40,7 +40,17 @@ int PWM_MAX;
 int PWM_MIN;
 
 /**
- * variables for keeping track of the voltage being output
+ * variables for keeping track of actual voltages, for averaging
+ */
+const int READ_COUNT = 20;
+int       v_reads[READ_COUNT];
+int       i_reads[READ_COUNT];
+int       v_sum;
+int       i_sum;
+int       read_loc = 1;
+
+/**
+ * variables for keeping track of the intended voltage output
  */
 float desired;
 float pwm_out;
@@ -64,6 +74,14 @@ void setup() {
   pinMode(PWM_PIN, OUTPUT);
   calibrate();
   setDesired(8.0);
+  for(int i = 1; i < READ_COUNT; i++){
+    v_reads[i] = 0;
+    i_reads[i] = 0;
+  }
+  v_reads[0] = analogRead(V_READ_PIN);
+  i_reads[0] = analogRead(I_READ_PIN);
+  v_sum = v_reads[0];
+  i_sum = i_reads[0];
 }
 
 void setDesired(float voltage){
@@ -81,8 +99,7 @@ float getCurrent(){
    * Gets the current drawn by the active load, in mA.
    */
    
-  int digi_repr = analogRead(I_READ_PIN);
-  float measured = (ARDUINO_OUT * static_cast<float>(digi_repr)) / 1023;
+  float measured = (ARDUINO_OUT * i_sum) / (1023 * READ_COUNT);
   float ref_voltage = (measured * (R_IOUT_UPPER + R_IOUT_LOWER)) / R_IOUT_LOWER;
   float actual_voltage = getActualVoltage();
   float total_current = 1000000 * (ref_voltage - actual_voltage) / R_SC;
@@ -95,8 +112,7 @@ float getActualVoltage(){
    * Gets the voltage that is actually across the active load.
    */
 
-  int digi_repr = analogRead(V_READ_PIN);
-  float measured = (ARDUINO_OUT * static_cast<float>(digi_repr)) / 1023;
+  float measured = (ARDUINO_OUT * v_sum) / (1023 * READ_COUNT);
   return (measured * (R_VOUT_UPPER + R_VOUT_LOWER)) / R_VOUT_LOWER;
   
 }
@@ -111,10 +127,24 @@ void printStatus(){
 String readStr;
 
 void loop() {
+
+  // set pwm duty cycle
   analogWrite(PWM_PIN, pwm_out);
+
+  // read voltage and current
+  v_sum -= v_reads[read_loc];
+  v_reads[read_loc] = analogRead(V_READ_PIN);
+  v_sum += v_reads[read_loc];
+  i_sum -= i_reads[read_loc];
+  i_reads[read_loc] = analogRead(I_READ_PIN);
+  i_sum += i_reads[read_loc];
+  read_loc = (read_loc+1)%READ_COUNT;
+
+  // check if enough time has elapsed to calibrate
   calibration_count++;
   if(!(calibration_count%2000)) calibrate();
 
+  // check serial bus for command
   if(Serial.available()){
     readStr = Serial.readString();
 
