@@ -16,7 +16,7 @@ const int STATE_ADDR = 34;
 const int PWM_PIN    = 3;
 const int V_READ_PIN = A7;
 const int I_READ_PIN = A5;
-const int STATE_PIN  = A0;
+const int STATE_PIN  = A3;
 
 /**
  * voltage range definitions
