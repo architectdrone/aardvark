@@ -30,7 +30,7 @@ const float V_MIN = 8.0;
 const int  R_VOUT_UPPER = 5050; // 4560;
 const int  R_VOUT_LOWER = 3260; // 3243;
 const int  R_SC         = 940; // in milli-ohms
-const long R_IOUT_UPPER = 509000L;
+const long R_IOUT_UPPER = 551000L;
 const long R_IOUT_LOWER = 326000L;
 
 /**
@@ -49,12 +49,12 @@ int PWM_MIN;
 /**
  * variables for keeping track of actual voltages, for averaging
  */
-const int READ_COUNT = 20;
+const int READ_COUNT = 50;
 int       v_reads[READ_COUNT];
 int       i_reads[READ_COUNT];
-int       v_sum;
-int       i_sum;
-int       read_loc = 1;
+float     v_sum = 0;
+float     i_sum = 0;
+int       read_loc = 0;
 
 /**
  * variables for keeping track of the intended voltage output
@@ -89,14 +89,11 @@ void setup() {
   else                              setDesired(8.0);
   
   // setup voltage/current averaging tables
-  for(int i = 1; i < READ_COUNT; i++){
+  for(int i = 0; i < READ_COUNT; i++){
     v_reads[i] = 0;
     i_reads[i] = 0;
   }
-  v_reads[0] = analogRead(V_READ_PIN);
-  i_reads[0] = analogRead(I_READ_PIN);
-  v_sum = v_reads[0];
-  i_sum = i_reads[0];
+  
 }
 
 void setDesired(float voltage){
@@ -115,7 +112,7 @@ float getCurrent(){
    * Gets the current drawn by the active load, in mA.
    */
    
-  float measured = (ARDUINO_OUT * i_sum) / (1023 * READ_COUNT);
+  float measured = ((ARDUINO_OUT * i_sum) / 1023) / READ_COUNT;
   float ref_voltage = (measured * (R_IOUT_UPPER + R_IOUT_LOWER)) / R_IOUT_LOWER;
   float actual_voltage = getActualVoltage();
   float total_current = 1000000 * (ref_voltage - actual_voltage) / R_SC;
@@ -128,7 +125,7 @@ float getActualVoltage(){
    * Gets the voltage that is actually across the active load.
    */
 
-  float measured = (ARDUINO_OUT * v_sum) / (1023 * READ_COUNT);
+  float measured = ((ARDUINO_OUT * v_sum) / 1023) / READ_COUNT;
   return (measured * (R_VOUT_UPPER + R_VOUT_LOWER)) / R_VOUT_LOWER;
   
 }
